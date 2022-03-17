@@ -4,8 +4,8 @@
 #
 # Script        	: Daily Automatic Backup Script
 # Revision      	: 1.1
-# EXOS Version(s)  	: 31.5.1.6 (EXOS supports Python)
-# Last Updated  	: 17-Feb-2022
+# EXOS Version(s)  	: 31.6.1.6 (EXOS supports Python)
+# Last Updated  	: 16-March-2022
 #
 # Purpose:
 # Run automated back up on all scripts, including configuration, policies, and scripts. Benefits
@@ -23,7 +23,7 @@ import os
 # U S E R   C O N F I G U R A T I O N
 ###############################################################################
 # Preconfigured TFTP Server. Please Set to your TFTP Server
-tftp = '10.1.1.5'
+tftp = '10.67.55.79'
 # Preconfigured Virtual Router. Please Configure
 vrtr  = 'vr-Mgmt'
 # Time of day when backup occurs
@@ -32,10 +32,12 @@ backupTime = '22:00'
 
 ###############################################################################
 serial = None
-yeardirectory = None
-modirectory = None
-daydirectory = None
-systemTime = None
+time_list = []
+time_list.append(time.strftime('%m'))
+time_list.append(time.strftime('%d'))
+time_list.append(time.strftime('%Y'))
+systemTime = time.strftime('%H%M%S')
+
 
 def exosCmd(cmd):
     #print cmd
@@ -43,9 +45,8 @@ def exosCmd(cmd):
     #print result
     return result
 
-
 def uploadFiles(fileSuffix, uploadPrefix):
-    serialSystem = serial + '_' +  systemTime + '_'
+    serialSystem = str(serial) + '_' +  str(systemTime) + '_'
     for line in exosCmd('ls *' + fileSuffix).splitlines():
         line.strip()
         if line.endswith(fileSuffix):
@@ -54,9 +55,9 @@ def uploadFiles(fileSuffix, uploadPrefix):
                 exosCmd('create log message "Length Error.File name for ' + fileName + ' exceeded 32 byte max length."')
                 exosCmd('create log message "' + fileName + ' truncated to ' +  fileName[:32] + '"')
                 fileName = fileName[:32]
-            destFileName = '{yyyy}-{mm}-{dd}_{prefix}{file}{sourceFile}'.format(yyyy=yeardirectory,
-                    mm=modirectory,
-                    dd=daydirectory,
+            destFileName = '{yyyy}-{mm}-{dd}_{prefix}{file}{sourceFile}'.format(yyyy=time_list[2],
+                    mm= time_list[0],
+                    dd= time_list[1],
                     prefix=uploadPrefix,
                     file=serialSystem,
                     sourceFile=fileName)
@@ -104,9 +105,9 @@ def upmConfig():
         exosCmd('config upm timer ' + upmName + ' profile ' + upmName)
         backupHourMin = backupTime.split(':')
         cmd = 'config upm timer {name} at {mm} {dd} {yy} {hh} {min} 0 every 86400'.format(name=upmName,
-                mm=modirectory,
-                dd=daydirectory,
-                yy=yeardirectory,
+                mm=time_list[0],
+                dd=time_list[1],
+                yy=time_list[2],
                 hh=backupHourMin[0],
                 min=backupHourMin[1])
         exosCmd(cmd)
@@ -115,9 +116,10 @@ def upmConfig():
 
 
 if upmConfig() == None:
-    yeardirectory = time.strftime('%Y')
-    modirectory = time.strftime('%m')
-    daydirectory = time.strftime('%d')
+    time_list = []
+    time_list.append(time.strftime('%m'))
+    time_list.append(time.strftime('%d'))
+    time_list.append(time.strftime('%Y'))
     systemTime = time.strftime('%H%M%S')
     for line in exosCmd('show version').splitlines():
         if line.startswith('Switch'):
@@ -134,3 +136,4 @@ if upmConfig() == None:
     uploadFiles('.cfg','c')
 
     exosCmd('create log message "Automated Backup Ran"')
+
